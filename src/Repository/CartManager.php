@@ -7,19 +7,17 @@ namespace Raketa\BackendTestTask\Repository;
 use Exception;
 use Psr\Log\LoggerInterface;
 use Raketa\BackendTestTask\Domain\Cart;
+use Raketa\BackendTestTask\Infrastructure\Connector;
+use Raketa\BackendTestTask\Infrastructure\ConnectorException;
 use Raketa\BackendTestTask\Infrastructure\ConnectorFacade;
 
-class CartManager extends ConnectorFacade
+class CartManager
 {
-    public $logger;
+    public LoggerInterface $logger;
 
-    public function __construct($host, $port, $password)
-    {
-        parent::__construct($host, $port, $password, 1);
-        parent::build();
-    }
+    public function __construct(private readonly Connector $connector) {}
 
-    public function setLogger(LoggerInterface $logger)
+    public function setLogger(LoggerInterface $logger): void
     {
         $this->logger = $logger;
     }
@@ -27,10 +25,10 @@ class CartManager extends ConnectorFacade
     /**
      * @inheritdoc
      */
-    public function saveCart(Cart $cart)
+    public function saveCart(Cart $cart): void
     {
         try {
-            $this->connector->set($cart, session_id());
+            $this->connector->set(session_id(), $cart);
         } catch (Exception $e) {
             $this->logger->error('Error');
         }
@@ -39,14 +37,18 @@ class CartManager extends ConnectorFacade
     /**
      * @return ?Cart
      */
-    public function getCart()
+    public function getCart(): ?Cart
     {
         try {
-            return $this->connector->get(session_id());
-        } catch (Exception $e) {
-            $this->logger->error('Error');
+            $redisValue = $this->connector->get(session_id());
+
+            if (!empty($redisValue)) {
+                return $redisValue;
+            }
+        } catch (ConnectorException|Exception $e) {
+            $this->logger->error('Error: ' . $e->getMessage());
         }
 
-        return new Cart(session_id(), []);
+        return Cart::createEmptyCart();
     }
 }

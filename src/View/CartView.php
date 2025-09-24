@@ -11,8 +11,7 @@ readonly class CartView
 {
     public function __construct(
         private ProductRepository $productRepository
-    ) {
-    }
+    ) {}
 
     public function toArray(Cart $cart): array
     {

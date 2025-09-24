@@ -11,7 +11,13 @@ final class Cart
         readonly private Customer $customer,
         readonly private string $paymentMethod,
         private array $items,
-    ) {
+    ) {}
+
+    public static function createEmptyCart(): self
+    {
+        return new self(
+            // TODO: формирование пустой корзины. Не знаю что сюда нужно передавать, с учётом того, что кастомер нигде не создаётся
+        );
     }
 
     public function getUuid(): string

@@ -5,36 +5,38 @@ declare(strict_types = 1);
 namespace Raketa\BackendTestTask\Repository;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Exception;
 use Raketa\BackendTestTask\Repository\Entity\Product;
 
-class ProductRepository
+readonly class ProductRepository
 {
-    private Connection $connection;
+    public function __construct(private Connection $connection) {}
 
-    public function __construct(Connection $connection)
-    {
-        $this->connection = $connection;
-    }
-
-    public function getByUuid(string $uuid): Product
+    /**
+     * @throws Exception
+     */
+    public function getByUuid(string $uuid): ?Product
     {
         $row = $this->connection->fetchOne(
-            "SELECT * FROM products WHERE uuid = " . $uuid,
+            'SELECT ' . $this->columnsForMake() . ' FROM products WHERE uuid = ' . $uuid,
         );
 
         if (empty($row)) {
-            throw new Exception('Product not found');
+            return null;
         }
 
         return $this->make($row);
     }
 
+    /**
+     * @throws Exception
+     */
     public function getByCategory(string $category): array
     {
         return array_map(
             static fn (array $row): Product => $this->make($row),
             $this->connection->fetchAllAssociative(
-                "SELECT id FROM products WHERE is_active = 1 AND category = " . $category,
+                'SELECT ' . $this->columnsForMake() . ' FROM products WHERE is_active = 1 AND category = ' . $category,
             )
         );
     }
@@ -51,5 +53,10 @@ class ProductRepository
             $row['thumbnail'],
             $row['price'],
         );
+    }
+
+    private function columnsForMake(): string // TODO: Больше привык делать запросы через ORM сущности, конкретно Eloquent. Там бы сделал Scope
+    {
+        return 'id, uuid, is_active, category, name, description, thumbnail, price';
     }
 }

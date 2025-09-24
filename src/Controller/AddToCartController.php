@@ -2,6 +2,7 @@
 
 namespace Raketa\BackendTestTask\Controller;
 
+use Doctrine\DBAL\Exception;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Raketa\BackendTestTask\Domain\CartItem;
@@ -16,13 +17,26 @@ readonly class AddToCartController
         private ProductRepository $productRepository,
         private CartView $cartView,
         private CartManager $cartManager,
-    ) {
-    }
+    ) {}
 
-    public function get(RequestInterface $request): ResponseInterface
+    public function add(JsonResponse $request): ResponseInterface // Название метода лучше сделать `add`
     {
         $rawRequest = json_decode($request->getBody()->getContents(), true);
-        $product = $this->productRepository->getByUuid($rawRequest['productUuid']);
+
+        if (is_null($rawRequest)) {
+            return $this->errorResponse('Не удалось раскодировать предоставленные данные', 400);
+        }
+
+        // "Валидация"
+        if (empty($rawRequest['productUuid']) || empty($rawRequest['quantity'])) {
+            return $this->errorResponse('Переданы не все данные', 400);
+        }
+
+        $product = $this->productRepository->getByUuid($rawRequest['productUuid']); // TODO: Конкретные действия с сущностями лучше делать в сервисах. В контроллере лишь передача данных в сервис, и возврат ответа пользователю
+
+        if (is_null($product)) { // Проверка на нахождение товара
+            return $this->errorResponse('Товар не найден', 404);
+        }
 
         $cart = $this->cartManager->getCart();
         $cart->addItem(new CartItem(
@@ -32,12 +46,33 @@ readonly class AddToCartController
             $rawRequest['quantity'],
         ));
 
+        return $this->okResponse(json_encode(
+            [
+                'status' => 'success',
+                'cart' => $this->cartView->toArray($cart),
+            ],
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+        ));
+    }
+
+    private function okResponse(string $message): JsonResponse // TODO: вынести метод в отдельный класс, чтобы избежать дублирования
+    {
+        $response = new JsonResponse();
+        $response->getBody()->write($message);
+
+        return $response
+            ->withHeader('Content-Type', 'application/json; charset=utf-8')
+            ->withStatus(200);
+    }
+
+    private function errorResponse(string $message, int $code = 500): JsonResponse // TODO: вынести метод в отдельный класс, чтобы избежать дублирования
+    {
         $response = new JsonResponse();
         $response->getBody()->write(
             json_encode(
                 [
-                    'status' => 'success',
-                    'cart' => $this->cartView->toArray($cart)
+                    'status' => 'error',
+                    'message' => $message,
                 ],
                 JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
             )
@@ -45,6 +80,6 @@ readonly class AddToCartController
 
         return $response
             ->withHeader('Content-Type', 'application/json; charset=utf-8')
-            ->withStatus(200);
+            ->withStatus($code);
     }
 }

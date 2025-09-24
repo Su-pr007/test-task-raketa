@@ -12,8 +12,7 @@ final readonly class Customer
         private string $lastName,
         private string $middleName,
         private string $email,
-    ) {
-    }
+    ) {}
 
     public function getId(): int
     {

@@ -7,41 +7,32 @@ namespace Raketa\BackendTestTask\Infrastructure;
 use Redis;
 use RedisException;
 
-class ConnectorFacade
+class ConnectorFacade // Если всегда происходит подключение к определённому сервису, то это уже не фасад
 {
-    public string $host;
-    public int $port = 6379;
-    public ?string $password = null;
-    public ?int $dbindex = null;
+    public ?Connector $connector;
 
-    public $connector;
-
-    public function __construct($host, $port, $password, $dbindex)
-    {
-        $this->host = $host;
-        $this->port = $port;
-        $this->password = $password;
-        $this->dbindex = $dbindex;
-    }
+    public function __construct(
+        private readonly string $host,
+        private readonly int $port,
+        private readonly ?string $password = null,
+        private readonly ?int $dbIndex = null,
+    ) {}
 
     protected function build(): void
     {
         $redis = new Redis();
 
-        try {
-            $isConnected = $redis->isConnected();
-            if (! $isConnected && $redis->ping('Pong')) {
-                $isConnected = $redis->connect(
-                    $this->host,
-                    $this->port,
-                );
-            }
-        } catch (RedisException) {
+        $isConnected = $redis->isConnected();
+        if (!$isConnected && $redis->ping('Pong')) {
+            $isConnected = $redis->connect(
+                $this->host,
+                $this->port,
+            );
         }
 
         if ($isConnected) {
             $redis->auth($this->password);
-            $redis->select($this->dbindex);
+            $redis->select($this->dbIndex);
             $this->connector = new Connector($redis);
         }
     }
